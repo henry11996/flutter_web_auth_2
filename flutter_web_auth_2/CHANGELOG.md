@@ -1,3 +1,8 @@
+## 5.0.2
+
+- 🐛 Fix possible NPE on Android (Thanks to [@henry11996](https://github.com/henry11996) in [#196](https://github.com/ThexXTURBOXx/flutter_web_auth_2/pull/196))
+- 🌹 Dummy implementation for `cleanUpDanglingCalls` on web to prevent unneeded crashes
+
 ## 5.0.1
 
 - 🐛 Fix crash on Android and implement proper feedback if no browser is installed (Thanks to [@Mino5531](https://github.com/Mino5531) in [#190](https://github.com/ThexXTURBOXx/flutter_web_auth_2/pull/190))
