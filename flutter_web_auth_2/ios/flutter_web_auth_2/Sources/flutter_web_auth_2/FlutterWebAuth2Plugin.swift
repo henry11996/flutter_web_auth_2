@@ -163,6 +163,7 @@ public class FlutterWebAuth2Plugin: NSObject, FlutterPlugin {
 
     // MARK: - UIScene lifecycle (UIScene-based lifecycle)
 
+    @available(iOS 13, *)
     public func scene(_ scene: UIScene, continueUserActivity userActivity: NSUserActivity) -> Bool {
         return handleUserActivity(userActivity)
     }
