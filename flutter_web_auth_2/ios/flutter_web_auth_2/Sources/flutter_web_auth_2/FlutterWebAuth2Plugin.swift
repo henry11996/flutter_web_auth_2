@@ -9,6 +9,10 @@ public class FlutterWebAuth2Plugin: NSObject, FlutterPlugin {
         let instance = FlutterWebAuth2Plugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
         registrar.addApplicationDelegate(instance)
+        // Register for UIScene lifecycle events when available (Flutter 3.38+).
+        if registrar.responds(to: Selector(("addSceneDelegate:"))) {
+            registrar.perform(Selector(("addSceneDelegate:")), with: instance)
+        }
     }
 
     var completionHandler: ((URL?, Error?) -> Void)?
@@ -87,12 +91,12 @@ public class FlutterWebAuth2Plugin: NSObject, FlutterPlugin {
                     if (callbackURLScheme == "https") {
                         guard let host = options["httpsHost"] as? String else {
                             result(FlutterError.invalidHttpsHostError)
-                            return 
+                            return
                         }
 
                         guard let path = options["httpsPath"] as? String else {
                             result(FlutterError.invalidHttpsPathError)
-                            return 
+                            return
                         }
 
                         _session = ASWebAuthenticationSession(url: url, callback: ASWebAuthenticationSession.Callback.https(host: host, path: path), completionHandler: completionHandler!)
@@ -105,32 +109,22 @@ public class FlutterWebAuth2Plugin: NSObject, FlutterPlugin {
                 let session = _session!
 
                 if #available(iOS 13, *) {
-                    var rootViewController: UIViewController? = nil
+                    let rootViewController = Self.findRootViewController()
 
-                    // FlutterViewController
-                    if (rootViewController == nil) {
-                        rootViewController = UIApplication.shared.delegate?.window??.rootViewController as? FlutterViewController
-                    }
-
-                    // UIViewController
-                    if (rootViewController == nil) {
-                        rootViewController = UIApplication.shared.keyWindow?.rootViewController
-                    }
-
-                    // ACQUIRE_ROOT_VIEW_CONTROLLER_FAILED
-                    if (rootViewController == nil) {
+                    guard let rootViewController else {
                         result(FlutterError.acquireRootViewControllerFailed)
                         return
                     }
 
-                    while let presentedViewController = rootViewController!.presentedViewController {
-                        rootViewController = presentedViewController
+                    var topController = rootViewController
+                    while let presentedViewController = topController.presentedViewController {
+                        topController = presentedViewController
                     }
-                    if let nav = rootViewController as? UINavigationController {
-                        rootViewController = nav.visibleViewController ?? rootViewController
+                    if let nav = topController as? UINavigationController {
+                        topController = nav.visibleViewController ?? topController
                     }
 
-                    guard let contextProvider = rootViewController as? ASWebAuthenticationPresentationContextProviding else {
+                    guard let contextProvider = topController as? ASWebAuthenticationPresentationContextProviding else {
                         result(FlutterError.acquireRootViewControllerFailed)
                         return
                     }
@@ -157,11 +151,25 @@ public class FlutterWebAuth2Plugin: NSObject, FlutterPlugin {
         }
     }
 
+    // MARK: - UIApplicationDelegate (old lifecycle)
+
     public func application(
         _ application: UIApplication,
         continue userActivity: NSUserActivity,
         restorationHandler: @escaping ([Any]) -> Void) -> Bool
     {
+        return handleUserActivity(userActivity)
+    }
+
+    // MARK: - UIScene lifecycle (UIScene-based lifecycle)
+
+    public func scene(_ scene: UIScene, continueUserActivity userActivity: NSUserActivity) -> Bool {
+        return handleUserActivity(userActivity)
+    }
+
+    // MARK: - Private helpers
+
+    private func handleUserActivity(_ userActivity: NSUserActivity) -> Bool {
         switch userActivity.activityType {
             case NSUserActivityTypeBrowsingWeb:
                 guard let url = userActivity.webpageURL, let completionHandler = completionHandler else {
@@ -171,6 +179,40 @@ public class FlutterWebAuth2Plugin: NSObject, FlutterPlugin {
                 return true
             default: return false
         }
+    }
+
+    /// Finds the root view controller using UIScene APIs when available,
+    /// falling back to the legacy UIApplication.shared.delegate?.window approach.
+    @available(iOS 13, *)
+    private static func findRootViewController() -> UIViewController? {
+        // Prefer UIScene-based window lookup (required for UIScene lifecycle)
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene,
+                  scene.activationState == .foregroundActive else { continue }
+            if let rootVC = Self.keyWindow(from: windowScene)?.rootViewController {
+                return rootVC
+            }
+        }
+        // Fallback: any connected UIWindowScene
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            if let rootVC = Self.keyWindow(from: windowScene)?.rootViewController {
+                return rootVC
+            }
+        }
+        // Legacy fallback for old lifecycle
+        if let rootVC = UIApplication.shared.delegate?.window??.rootViewController {
+            return rootVC
+        }
+        return nil
+    }
+
+    @available(iOS 13, *)
+    private static func keyWindow(from windowScene: UIWindowScene) -> UIWindow? {
+        if #available(iOS 15, *) {
+            return windowScene.keyWindow
+        }
+        return windowScene.windows.first(where: { $0.isKeyWindow })
     }
 }
 
