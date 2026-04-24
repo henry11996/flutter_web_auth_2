@@ -27,6 +27,8 @@ dependencies:
   flutter_web_auth_2: ^5.0.0
 ```
 
+This package now requires Flutter `>=3.38.0` and Dart `>=3.10.0` for iOS `UIScene` lifecycle support.
+
 To authenticate against your own custom site:
 
 ```dart
@@ -94,6 +96,8 @@ The following constraints have been added in `5.0.0`:
 - On Android, issues with `taskAffinity`s have been fixed and it is strongly advised to set `android:taskAffinity=""` for all exported `Activity`s (this usually includes your `MainActivity` and `flutter_web_auth_2`'s `CallbackActivity`)
 - Dart SDK `>=3.5.0` is now required (due to migration to melos `7.x`)
 - If you want ephemeral authentication on Android, use `preferEphemeral` instead of `ephemeralIntentFlags` as `intentFlags` have other influences now
+
+For the current iOS `UIScene` lifecycle integration, the package requires Flutter `>=3.38.0` and Dart `>=3.10.0`.
 
 ### Upgrading to `4.x`
 
